@@ -80,11 +80,9 @@ export class WeightedConstrainedRandomizer {
    * @returns {boolean}
    */
   next() {
-    this.totalTrials++;
-
-    // Calculate current ratio
+    // Calculate current ratio BEFORE this trial (using completed trials only)
     const currentRatio =
-      this.totalTrials > 0 ? this.counts.true / this.totalTrials : 0;
+      this.totalTrials > 0 ? this.counts.true / this.totalTrials : this.targetRatio;
 
     // Anti-clustering check (max 2 consecutive)
     if (
@@ -114,6 +112,7 @@ export class WeightedConstrainedRandomizer {
   updateHistory(choice) {
     this.recentTrials.push(choice);
     this.counts[choice]++;
+    this.totalTrials++;
     if (this.recentTrials.length > 2) {
       this.recentTrials.shift();
     }

@@ -58,6 +58,7 @@ export function saveSession(session) {
     const baselineKeyMap = {
       gap_detection: 'gapDetection',
       temporal_order_judgment: 'temporalOrderJudgment',
+      dichotic_toj_spatial: 'dichoticTojSpatial',
       duration_reproduction: 'durationReproduction',
       pitch_discrimination: 'pitchDiscrimination',
       pattern_detection: 'patternDetection',
@@ -113,6 +114,7 @@ export function getBaselines() {
   return safeGet(STORAGE_KEYS.BASELINES, {
     gapDetection: null,
     temporalOrderJudgment: null,
+    dichoticTojSpatial: null,
     durationReproduction: null,
     pitchDiscrimination: null,
     patternDetection: null,

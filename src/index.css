@@ -1457,6 +1457,7 @@ select.input-field {
   gap: 16px;
 }
 
+.dichotic-spatial-card:hover { border-color: #8b5cf6; }
 .duration-card:hover { border-color: #22c55e; }
 .pitch-card:hover { border-color: #f59e0b; }
 .pattern-card:hover { border-color: #ec4899; }

@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { generateUUID } from '../utils/uuid';
 import { calculateAccuracy, getNextLevel, shouldEndSession, getSessionSummary } from '../utils/adaptive';
 import { saveSession, saveTrial } from '../utils/storage';
+import { useBeforeUnload } from './useBeforeUnload';
 
 /**
  * Shared hook for exercise logic
@@ -42,6 +43,9 @@ export function useExercise(config) {
   const stimulusStartTime = useRef(0);
   const feedbackTimeout = useRef(null);
   const playingTimeout = useRef(null);
+
+  // Warn before leaving page mid-session
+  useBeforeUnload(trialNumber > 0 && phase !== 'complete');
 
   // Cleanup on unmount
   useEffect(() => {

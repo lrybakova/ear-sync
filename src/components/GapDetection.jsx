@@ -188,6 +188,15 @@ export default function GapDetection({ isBaseline = false, onComplete }) {
           </div>
         )}
 
+        {phase === 'ready' && trialNumber > 0 && (
+          <div className="stage-active">
+            <div className="next-trial-indicator">
+              <div className="pulse-dot" />
+            </div>
+            <p className="stage-label">Next trial...</p>
+          </div>
+        )}
+
         {phase === 'playing' && (
           <div className="stage-active">
             <div className="audio-visualizer">

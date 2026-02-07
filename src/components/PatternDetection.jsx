@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { generateUUID } from '../utils/uuid';
+import { useBeforeUnload } from '../hooks/useBeforeUnload';
 import { getAudioContext, playPatternSequence } from '../audio/audioEngine';
 import {
   PATTERN_LEVELS,
@@ -39,6 +40,9 @@ export default function PatternDetection({ isBaseline = false, onComplete }) {
   const stimulusStartRef = useRef(0);
   const feedbackTimeoutRef = useRef(null);
   const respondedRef = useRef(false);
+
+  // Warn before leaving page mid-session
+  useBeforeUnload(trialNumber > 0 && phase !== 'complete');
 
   useEffect(() => {
     return () => {
@@ -398,6 +402,15 @@ export default function PatternDetection({ isBaseline = false, onComplete }) {
             <button className="btn-primary btn-large" onClick={playStimulus}>
               Start Exercise
             </button>
+          </div>
+        )}
+
+        {phase === 'ready' && trialNumber > 0 && (
+          <div className="stage-active">
+            <div className="next-trial-indicator">
+              <div className="pulse-dot" />
+            </div>
+            <p className="stage-label">Next trial...</p>
           </div>
         )}
 

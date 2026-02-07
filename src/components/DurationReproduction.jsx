@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { generateUUID } from '../utils/uuid';
+import { useBeforeUnload } from '../hooks/useBeforeUnload';
 import {
   getAudioContext,
   playReferenceTone,
@@ -40,6 +41,9 @@ export default function DurationReproduction({ isBaseline = false, onComplete })
   const holdStartRef = useRef(0);
   const animFrameRef = useRef(null);
   const feedbackTimeoutRef = useRef(null);
+
+  // Warn before leaving page mid-session
+  useBeforeUnload(trialIndex > 0 && phase !== 'complete');
 
   // Cleanup on unmount
   useEffect(() => {
@@ -84,97 +88,100 @@ export default function DurationReproduction({ isBaseline = false, onComplete })
     }, 500);
   }, [trialIndex, trialOrder, elapsed]);
 
-  // Handle spacebar hold for reproduction
-  const handleKeyDown = useCallback((e) => {
-    if (e.repeat) return; // ignore key repeat
+  // --- Shared hold start/stop logic (used by keyboard AND touch) ---
 
+  const beginHold = useCallback(() => {
+    if (phase !== 'reproducing' || sustainedToneRef.current) return;
+    getAudioContext();
+    sustainedToneRef.current = startSustainedTone(440);
+    holdStartRef.current = performance.now();
+
+    const maxDisplay = Math.min(currentTarget * 2, 3000);
+    const animate = () => {
+      const held = performance.now() - holdStartRef.current;
+      setHoldProgress(Math.min(1, held / maxDisplay));
+      setUserDuration(Math.round(held));
+      animFrameRef.current = requestAnimationFrame(animate);
+    };
+    animFrameRef.current = requestAnimationFrame(animate);
+  }, [phase, currentTarget]);
+
+  const endHold = useCallback(() => {
+    if (phase !== 'reproducing' || !sustainedToneRef.current) return;
+
+    const heldMs = sustainedToneRef.current.stop();
+    sustainedToneRef.current = null;
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+
+    const target = trialOrder[trialIndex];
+    const accuracy = calculateDurationAccuracy(target, heldMs);
+    const rating = getDurationRating(accuracy);
+
+    const trial = {
+      exerciseType: 'duration_reproduction',
+      timestamp: Date.now(),
+      targetDurationMs: target,
+      userDurationMs: heldMs,
+      accuracyPercent: Math.round(accuracy),
+      rating,
+      trialNumber: trialIndex + 1,
+      sessionId,
+    };
+
+    saveTrial(trial);
+    const newAllTrials = [...allTrials, trial];
+    setAllTrials(newAllTrials);
+    setLastResult(trial);
+    setUserDuration(heldMs);
+    setPhase('feedback');
+
+    feedbackTimeoutRef.current = setTimeout(() => {
+      const nextIndex = trialIndex + 1;
+      const newElapsed = Date.now() - sessionStartTime;
+
+      if (nextIndex >= trialOrder.length || newElapsed >= DURATION_MAX_TIME_MS) {
+        const avgAccuracy = newAllTrials.reduce((s, t) => s + t.accuracyPercent, 0) / newAllTrials.length;
+        saveSession({
+          sessionId,
+          exerciseType: 'duration_reproduction',
+          timestamp: Date.now(),
+          startTime: sessionStartTime,
+          duration: newElapsed,
+          trialsCompleted: newAllTrials.length,
+          overallAccuracy: avgAccuracy / 100,
+          finalThreshold: Math.round(avgAccuracy),
+          finalStepIndex: 0,
+          averageReactionTimeMs: 0,
+          isBaseline,
+        });
+        setPhase('complete');
+      } else {
+        setTrialIndex(nextIndex);
+        setPhase('ready');
+      }
+    }, 2500);
+  }, [phase, trialIndex, trialOrder, allTrials, sessionId, sessionStartTime, isBaseline]);
+
+  // --- Keyboard handlers ---
+
+  const handleKeyDown = useCallback((e) => {
+    if (e.repeat) return;
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
-
       if (phase === 'ready' && trialIndex === 0) {
         playStimulus();
         return;
       }
-
-      if (phase === 'reproducing' && !sustainedToneRef.current) {
-        // Start sustained tone
-        getAudioContext();
-        sustainedToneRef.current = startSustainedTone(440);
-        holdStartRef.current = performance.now();
-
-        // Animate progress
-        const maxDisplay = Math.min(currentTarget * 2, 3000); // cap display at 2x target or 3s
-        const animate = () => {
-          const held = performance.now() - holdStartRef.current;
-          setHoldProgress(Math.min(1, held / maxDisplay));
-          setUserDuration(Math.round(held));
-          animFrameRef.current = requestAnimationFrame(animate);
-        };
-        animFrameRef.current = requestAnimationFrame(animate);
-      }
+      beginHold();
     }
-  }, [phase, trialIndex, playStimulus, currentTarget]);
+  }, [phase, trialIndex, playStimulus, beginHold]);
 
   const handleKeyUp = useCallback((e) => {
-    if ((e.key === ' ' || e.key === 'Enter') && phase === 'reproducing' && sustainedToneRef.current) {
+    if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
-
-      // Stop tone and get duration
-      const heldMs = sustainedToneRef.current.stop();
-      sustainedToneRef.current = null;
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-
-      const target = trialOrder[trialIndex];
-      const accuracy = calculateDurationAccuracy(target, heldMs);
-      const rating = getDurationRating(accuracy);
-
-      const trial = {
-        exerciseType: 'duration_reproduction',
-        timestamp: Date.now(),
-        targetDurationMs: target,
-        userDurationMs: heldMs,
-        accuracyPercent: Math.round(accuracy),
-        rating,
-        trialNumber: trialIndex + 1,
-        sessionId,
-      };
-
-      saveTrial(trial);
-      const newAllTrials = [...allTrials, trial];
-      setAllTrials(newAllTrials);
-      setLastResult(trial);
-      setUserDuration(heldMs);
-      setPhase('feedback');
-
-      // Auto-advance after feedback
-      feedbackTimeoutRef.current = setTimeout(() => {
-        const nextIndex = trialIndex + 1;
-        const newElapsed = Date.now() - sessionStartTime;
-
-        if (nextIndex >= trialOrder.length || newElapsed >= DURATION_MAX_TIME_MS) {
-          // Session complete
-          const avgAccuracy = newAllTrials.reduce((s, t) => s + t.accuracyPercent, 0) / newAllTrials.length;
-          saveSession({
-            sessionId,
-            exerciseType: 'duration_reproduction',
-            timestamp: Date.now(),
-            startTime: sessionStartTime,
-            duration: newElapsed,
-            trialsCompleted: newAllTrials.length,
-            overallAccuracy: avgAccuracy / 100,
-            finalThreshold: Math.round(avgAccuracy),
-            finalStepIndex: 0,
-            averageReactionTimeMs: 0,
-            isBaseline,
-          });
-          setPhase('complete');
-        } else {
-          setTrialIndex(nextIndex);
-          setPhase('ready');
-        }
-      }, 2500); // longer feedback to show comparison
+      endHold();
     }
-  }, [phase, trialIndex, trialOrder, allTrials, sessionId, sessionStartTime, isBaseline]);
+  }, [endHold]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -184,6 +191,18 @@ export default function DurationReproduction({ isBaseline = false, onComplete })
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, [handleKeyDown, handleKeyUp]);
+
+  // --- Touch handlers for the hold button (mobile) ---
+
+  const handleTouchStart = useCallback((e) => {
+    e.preventDefault(); // prevent scroll / long-press menu
+    beginHold();
+  }, [beginHold]);
+
+  const handleTouchEnd = useCallback((e) => {
+    e.preventDefault();
+    endHold();
+  }, [endHold]);
 
   // Auto-start next trial
   useEffect(() => {
@@ -324,7 +343,7 @@ export default function DurationReproduction({ isBaseline = false, onComplete })
             <div className="instruction-card">
               <h3>How it works</h3>
               <p>1. You'll hear a reference tone for a specific duration.</p>
-              <p>2. After a short pause, <strong>hold SPACE</strong> to reproduce that same duration.</p>
+              <p>2. After a short pause, <strong>hold SPACE</strong> (or press & hold the circle on mobile) to reproduce that same duration.</p>
               <p>3. Release when you think you've matched the length!</p>
               <div className="key-hints">
                 <span><kbd>SPACE</kbd> Hold to reproduce duration</span>
@@ -333,6 +352,15 @@ export default function DurationReproduction({ isBaseline = false, onComplete })
             <button className="btn-primary btn-large" onClick={playStimulus}>
               Start Exercise
             </button>
+          </div>
+        )}
+
+        {phase === 'ready' && trialIndex > 0 && (
+          <div className="stage-active">
+            <div className="next-trial-indicator">
+              <div className="pulse-dot" />
+            </div>
+            <p className="stage-label">Next trial...</p>
           </div>
         )}
 
@@ -358,7 +386,17 @@ export default function DurationReproduction({ isBaseline = false, onComplete })
 
         {phase === 'reproducing' && (
           <div className="stage-respond">
-            <div className="duration-circle reproducing">
+            <div
+              className={`duration-circle reproducing ${sustainedToneRef.current ? 'holding' : ''}`}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+              onMouseDown={beginHold}
+              onMouseUp={endHold}
+              onMouseLeave={() => { if (sustainedToneRef.current) endHold(); }}
+              role="button"
+              tabIndex={0}
+              aria-label="Hold to reproduce duration"
+            >
               <svg className="progress-ring" viewBox="0 0 120 120">
                 <circle
                   cx="60" cy="60" r="54"
@@ -387,7 +425,9 @@ export default function DurationReproduction({ isBaseline = false, onComplete })
               </div>
             </div>
             <p className="stage-label">
-              {sustainedToneRef.current ? 'Holding... release when ready!' : 'Hold SPACE to start'}
+              {sustainedToneRef.current
+                ? 'Holding... release when ready!'
+                : 'Hold SPACE or press & hold the circle'}
             </p>
           </div>
         )}

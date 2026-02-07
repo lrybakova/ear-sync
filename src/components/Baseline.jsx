@@ -2,19 +2,38 @@ import { useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import GapDetection from './GapDetection';
 import TemporalOrderJudgment from './TemporalOrderJudgment';
+import DurationReproduction from './DurationReproduction';
+import PitchDiscrimination from './PitchDiscrimination';
+import PatternDetection from './PatternDetection';
 import HeadphoneCheck from './HeadphoneCheck';
-import { saveBaseline, getBaselines } from '../utils/storage';
+
+const EXERCISE_LABELS = {
+  gap: 'Gap Detection',
+  toj: 'Temporal Order Judgment',
+  duration: 'Duration Reproduction',
+  pitch: 'Pitch Discrimination',
+  pattern: 'Pattern Detection',
+};
+
+const EXERCISE_TIMES = {
+  gap: '~15 min',
+  toj: '~15 min',
+  duration: '~12 min',
+  pitch: '~15 min',
+  pattern: '~20 min',
+};
+
+const NEEDS_HEADPHONES = ['toj'];
 
 export default function Baseline() {
   const navigate = useNavigate();
   const { type } = useParams();
-  const [headphoneChecked, setHeadphoneChecked] = useState(type === 'gap');
+  const [headphoneChecked, setHeadphoneChecked] = useState(
+    !NEEDS_HEADPHONES.includes(type)
+  );
   const [started, setStarted] = useState(false);
 
-  const isGap = type === 'gap';
-  const isToj = type === 'toj';
-
-  const handleHeadphoneComplete = useCallback((passed) => {
+  const handleHeadphoneComplete = useCallback(() => {
     setHeadphoneChecked(true);
   }, []);
 
@@ -22,10 +41,13 @@ export default function Baseline() {
     navigate('/');
   }, [navigate]);
 
-  // For TOJ, show headphone check first
-  if (isToj && !headphoneChecked) {
+  // Headphone check for exercises that need stereo
+  if (!headphoneChecked) {
     return <HeadphoneCheck onComplete={handleHeadphoneComplete} />;
   }
+
+  const label = EXERCISE_LABELS[type] || type;
+  const time = EXERCISE_TIMES[type] || '~15 min';
 
   if (!started) {
     return (
@@ -34,19 +56,20 @@ export default function Baseline() {
           ← Back
         </button>
         <div className="baseline-content">
-          <h2>
-            📊 Baseline Measurement
-          </h2>
-          <h3>{isGap ? 'Gap Detection' : 'Temporal Order Judgment'}</h3>
+          <h2>📊 Baseline Measurement</h2>
+          <h3>{label}</h3>
           <div className="baseline-info">
-            <p>This baseline session will measure your current ability level. It takes about <strong>15 minutes</strong>.</p>
+            <p>
+              This baseline session will measure your current ability level.
+              It takes about <strong>{time}</strong>.
+            </p>
             <ul>
               <li>The exercise will automatically adjust difficulty</li>
-              <li>Your final threshold score will be saved</li>
-              <li>This is your reference point for tracking progress</li>
-              <li>Try your best, but don't worry about perfection!</li>
+              <li>Your final score will be saved as your reference point</li>
+              <li>This is what you'll compare against after training</li>
+              <li>Try your best, but don't stress about perfection!</li>
             </ul>
-            {isToj && (
+            {NEEDS_HEADPHONES.includes(type) && (
               <div className="headphone-notice">
                 🎧 Keep your headphones on - stereo separation is essential
               </div>
@@ -60,13 +83,13 @@ export default function Baseline() {
     );
   }
 
-  if (isGap) {
-    return <GapDetection isBaseline={true} onComplete={handleComplete} />;
-  }
+  const exerciseMap = {
+    gap: <GapDetection isBaseline onComplete={handleComplete} />,
+    toj: <TemporalOrderJudgment isBaseline onComplete={handleComplete} />,
+    duration: <DurationReproduction isBaseline onComplete={handleComplete} />,
+    pitch: <PitchDiscrimination isBaseline onComplete={handleComplete} />,
+    pattern: <PatternDetection isBaseline onComplete={handleComplete} />,
+  };
 
-  if (isToj) {
-    return <TemporalOrderJudgment isBaseline={true} onComplete={handleComplete} />;
-  }
-
-  return null;
+  return exerciseMap[type] || null;
 }

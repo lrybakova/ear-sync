@@ -8,6 +8,7 @@ export default function SessionComplete({
   finalThreshold,
   isBaseline,
   onDone,
+  thresholdUnit,
 }) {
   const stats = useMemo(() => {
     const correct = trials.filter((t) => t.correct).length;
@@ -30,8 +31,23 @@ export default function SessionComplete({
     };
   }, [trials, accuracy]);
 
-  const thresholdLabel = exerciseType === 'gap_detection' ? 'Gap Threshold' : 'SOA Threshold';
-  const unit = 'ms';
+  const thresholdLabels = {
+    gap_detection: 'Gap Threshold',
+    temporal_order_judgment: 'SOA Threshold',
+    pitch_discrimination: 'Pitch Threshold',
+    pattern_detection: 'Level',
+    duration_reproduction: 'Avg Accuracy',
+  };
+  const thresholdLabel = thresholdLabels[exerciseType] || 'Threshold';
+
+  const defaultUnits = {
+    gap_detection: 'ms',
+    temporal_order_judgment: 'ms',
+    pitch_discrimination: ' ST',
+    pattern_detection: '',
+    duration_reproduction: '%',
+  };
+  const unit = thresholdUnit ?? defaultUnits[exerciseType] ?? '';
 
   return (
     <div className="session-complete">

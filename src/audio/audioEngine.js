@@ -230,6 +230,130 @@ export function playTestTone(channel = 'center', frequency = 440, durationMs = 5
 }
 
 /**
+ * Play a reference tone for duration reproduction
+ * @param {number} frequency - Hz (default 440)
+ * @param {number} durationMs - Duration in ms
+ * @returns {Promise} Resolves when tone finishes
+ */
+export function playReferenceTone(frequency = 440, durationMs = 500) {
+  const { oscillator } = playTone(frequency, durationMs, 0, 0);
+  return new Promise((resolve) => {
+    oscillator.onended = () => resolve();
+    // Fallback timeout in case onended doesn't fire
+    setTimeout(resolve, durationMs + 50);
+  });
+}
+
+/**
+ * Start a sustained tone for duration reproduction (user holds key)
+ * Returns a stop function
+ * @param {number} frequency
+ * @returns {{ stop: () => number }} stop returns the duration in ms
+ */
+export function startSustainedTone(frequency = 440) {
+  const ctx = getAudioContext();
+  const startTime = ctx.currentTime;
+  const fadeDuration = 0.005;
+
+  const oscillator = ctx.createOscillator();
+  oscillator.type = 'sine';
+  oscillator.frequency.setValueAtTime(frequency, startTime);
+
+  const gainNode = ctx.createGain();
+  gainNode.gain.setValueAtTime(0, startTime);
+  gainNode.gain.linearRampToValueAtTime(0.5, startTime + fadeDuration);
+
+  oscillator.connect(gainNode);
+  gainNode.connect(getMasterGain());
+  oscillator.start(startTime);
+
+  const holdStart = performance.now();
+
+  return {
+    stop: () => {
+      const holdDuration = performance.now() - holdStart;
+      const now = ctx.currentTime;
+      gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+      gainNode.gain.linearRampToValueAtTime(0, now + fadeDuration);
+      oscillator.stop(now + fadeDuration + 0.01);
+      return Math.round(holdDuration);
+    },
+  };
+}
+
+/**
+ * Play a pitch discrimination sequence: 3 reference tones + 1 target
+ * @param {number} baseFreq - Reference frequency in Hz
+ * @param {number} targetFreq - Target frequency in Hz
+ * @param {number} toneDurationMs - Each tone's duration (default 250)
+ * @param {number} isiMs - Inter-stimulus interval (default 250)
+ * @returns {{ totalDurationMs: number }}
+ */
+export function playPitchSequence(baseFreq, targetFreq, toneDurationMs = 250, isiMs = 250) {
+  const stepMs = toneDurationMs + isiMs; // 500ms per tone+gap
+
+  // 3 reference tones
+  playTone(baseFreq, toneDurationMs, 0, 0);
+  playTone(baseFreq, toneDurationMs, 0, stepMs);
+  playTone(baseFreq, toneDurationMs, 0, stepMs * 2);
+
+  // 1 target tone
+  playTone(targetFreq, toneDurationMs, 0, stepMs * 3);
+
+  const totalDurationMs = stepMs * 3 + toneDurationMs;
+  return { totalDurationMs };
+}
+
+/**
+ * Play a pattern sequence (for Pattern Detection exercise)
+ * @param {number[]} frequencies - Array of frequencies to play
+ * @param {number} toneDurationMs - Each tone duration (default 150)
+ * @param {number} isiMs - Gap between tones (default 100)
+ * @param {number|null} snrDb - If not null, mix with background noise at this SNR
+ * @returns {{ totalDurationMs: number }}
+ */
+export function playPatternSequence(frequencies, toneDurationMs = 150, isiMs = 100, snrDb = null) {
+  const ctx = getAudioContext();
+  const stepMs = toneDurationMs + isiMs;
+  const totalDurationMs = frequencies.length * stepMs - isiMs; // no ISI after last tone
+
+  // If we need background noise, create a buffer and play it
+  if (snrDb !== null) {
+    const totalDurationSec = totalDurationMs / 1000 + 0.1; // small buffer
+    const sampleRate = ctx.sampleRate;
+    const bufferSize = Math.floor(sampleRate * totalDurationSec);
+    const buffer = ctx.createBuffer(1, bufferSize, sampleRate);
+    const data = buffer.getChannelData(0);
+
+    // White noise at reduced level based on SNR
+    // SNR = 20 * log10(signalAmp / noiseAmp)
+    // noiseAmp = signalAmp / 10^(SNR/20)
+    const signalAmplitude = 0.5; // our tone amplitude
+    const noiseAmplitude = signalAmplitude / Math.pow(10, snrDb / 20);
+
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * noiseAmplitude;
+    }
+
+    // Fade in/out
+    const fadeSamples = Math.floor(sampleRate * 0.01); // 10ms fade
+    for (let i = 0; i < fadeSamples; i++) {
+      data[i] *= i / fadeSamples;
+      data[bufferSize - 1 - i] *= i / fadeSamples;
+    }
+
+    playBuffer(buffer);
+  }
+
+  // Play each tone in the sequence
+  frequencies.forEach((freq, i) => {
+    playTone(freq, toneDurationMs, 0, i * stepMs);
+  });
+
+  return { totalDurationMs };
+}
+
+/**
  * Get the current audio context time (for reaction time measurement)
  */
 export function getCurrentTime() {

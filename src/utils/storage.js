@@ -89,6 +89,9 @@ export function getBaselines() {
   return safeGet(STORAGE_KEYS.BASELINES, {
     gapDetection: null,
     temporalOrderJudgment: null,
+    durationReproduction: null,
+    pitchDiscrimination: null,
+    patternDetection: null,
     externalTests: [],
   });
 }

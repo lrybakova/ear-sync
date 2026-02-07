@@ -121,10 +121,13 @@ export function useExercise(config) {
       setPhase('feedback');
 
       // Check if we need to evaluate level
+      // Track the effective step index BEFORE the setTimeout closure captures it
+      let effectiveStepIndex = currentStepIndex;
       if (newLevelTrials.length >= trialsPerLevel) {
         const accuracy = calculateAccuracy(newLevelTrials, trialsPerLevel);
         const next = getNextLevel(steps, currentStepIndex, accuracy, advanceThreshold, retreatThreshold);
 
+        effectiveStepIndex = next.stepIndex;
         setCurrentStepIndex(next.stepIndex);
         setLevelAction(next.action);
         setLevelTrials([]); // Reset level trials
@@ -134,8 +137,8 @@ export function useExercise(config) {
       feedbackTimeout.current = setTimeout(() => {
         const newElapsed = Date.now() - sessionStartTime;
         if (shouldEndSession(trialNumber + 1, newElapsed, maxTrials, maxTimeMs)) {
-          // Session complete - save it
-          const summary = getSessionSummary(newAllTrials, steps, currentStepIndex);
+          // Session complete - save it (use effectiveStepIndex, not stale currentStepIndex)
+          const summary = getSessionSummary(newAllTrials, steps, effectiveStepIndex);
           saveSession({
             ...summary,
             sessionId,

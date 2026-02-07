@@ -52,6 +52,30 @@ export function saveSession(session) {
   const sessions = getSessions();
   sessions.push(session);
   safeSet(STORAGE_KEYS.SESSIONS, sessions);
+
+  // Auto-save baseline data when this is a baseline session
+  if (session.isBaseline) {
+    const baselineKeyMap = {
+      gap_detection: 'gapDetection',
+      temporal_order_judgment: 'temporalOrderJudgment',
+      duration_reproduction: 'durationReproduction',
+      pitch_discrimination: 'pitchDiscrimination',
+      pattern_detection: 'patternDetection',
+    };
+    const baselineKey = baselineKeyMap[session.exerciseType];
+    if (baselineKey) {
+      const baselines = getBaselines();
+      baselines[baselineKey] = {
+        finalThreshold: session.finalThreshold,
+        overallAccuracy: session.overallAccuracy,
+        trialsCompleted: session.trialsCompleted,
+        timestamp: session.timestamp,
+        sessionId: session.sessionId,
+      };
+      safeSet(STORAGE_KEYS.BASELINES, baselines);
+    }
+  }
+
   return session;
 }
 

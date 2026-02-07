@@ -7,6 +7,9 @@ import PitchDiscrimination from './PitchDiscrimination';
 import PatternDetection from './PatternDetection';
 import HeadphoneCheck from './HeadphoneCheck';
 
+/* saveBaseline() is now called automatically inside saveSession()
+   when isBaseline is true - no need to call it manually here */
+
 const EXERCISE_LABELS = {
   gap: 'Gap Detection',
   toj: 'Temporal Order Judgment',

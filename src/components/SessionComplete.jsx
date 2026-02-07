@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { getBenchmarkSummary, BENCHMARKS } from '../utils/benchmarks';
 
 export default function SessionComplete({
   exerciseType,
@@ -85,6 +86,36 @@ export default function SessionComplete({
           <span className="stat-label">Median RT</span>
         </div>
       </div>
+
+      {/* Research Benchmark */}
+      {(() => {
+        const benchmark = getBenchmarkSummary(exerciseType, finalThreshold);
+        if (!benchmark) return null;
+        return (
+          <div className="benchmark-card">
+            <div className="benchmark-header">
+              <span className="benchmark-dot" style={{ background: benchmark.color }} />
+              <span className="benchmark-text" style={{ color: benchmark.color }}>
+                {benchmark.text}
+              </span>
+            </div>
+            <p className="benchmark-detail">{benchmark.detail}</p>
+            {benchmark.note && (
+              <p className="benchmark-note">{benchmark.note}</p>
+            )}
+            {benchmark.sourceUrl && (
+              <a
+                className="benchmark-source"
+                href={benchmark.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View research →
+              </a>
+            )}
+          </div>
+        );
+      })()}
 
       {isBaseline && (
         <div className="baseline-note">

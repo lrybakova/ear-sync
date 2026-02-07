@@ -19,6 +19,7 @@ import {
 } from '../utils/adaptive';
 import { WeightedConstrainedRandomizer } from '../utils/constrainedRandom';
 import { saveSession, saveTrial } from '../utils/storage';
+import { BENCHMARKS } from '../utils/benchmarks';
 
 /**
  * Pattern Detection in Noise Exercise
@@ -334,6 +335,33 @@ export default function PatternDetection({ isBaseline = false, onComplete }) {
             <span className="stat-label">Noise (SNR dB)</span>
           </div>
         </div>
+
+        {/* Research Benchmark */}
+        {(() => {
+          const bench = BENCHMARKS.pattern_detection;
+          const levelExp = bench.levelExpectations[currentLevel];
+          const accPct = Math.round(acc * 100);
+          const meetsExpectation = levelExp && accPct >= levelExp.min;
+          return (
+            <div className="benchmark-card">
+              <div className="benchmark-header">
+                <span className="benchmark-dot" style={{ background: meetsExpectation ? '#22c55e' : '#f59e0b' }} />
+                <span className="benchmark-text" style={{ color: meetsExpectation ? '#22c55e' : '#f59e0b' }}>
+                  {meetsExpectation ? 'Meeting expected accuracy for this level' : 'Below expected accuracy for this level'}
+                </span>
+              </div>
+              <p className="benchmark-detail">
+                Level {currentLevel} expected: {levelExp ? levelExp.label : 'N/A'} accuracy ({bench.source})
+              </p>
+              <p className="benchmark-note">{bench.note}</p>
+              {bench.sourceUrl && (
+                <a className="benchmark-source" href={bench.sourceUrl} target="_blank" rel="noopener noreferrer">
+                  View research →
+                </a>
+              )}
+            </div>
+          );
+        })()}
 
         {isBaseline && (
           <div className="baseline-note">

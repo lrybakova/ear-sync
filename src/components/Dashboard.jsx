@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import {
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Area, AreaChart,
+  ReferenceLine, ReferenceArea,
 } from 'recharts';
+import { BENCHMARKS } from '../utils/benchmarks';
 import {
   getThresholdHistory,
   getTotalSessionCount,
@@ -263,9 +265,19 @@ export default function Dashboard() {
             const gradId = `grad_${ex.id}`;
             const isAccuracyBased = ex.type === 'duration_reproduction';
 
+            const bench = BENCHMARKS[ex.type];
+            const hasBand = bench && bench.chartBand;
+
             return (
               <div key={ex.id} className="chart-card">
-                <h3>{ex.title} {isAccuracyBased ? 'Accuracy' : 'Threshold'}</h3>
+                <h3>
+                  {ex.title} {isAccuracyBased ? 'Accuracy' : 'Threshold'}
+                  {bench && (
+                    <span className="chart-benchmark-label">
+                      Normal: {bench.normal.label}
+                    </span>
+                  )}
+                </h3>
                 <ResponsiveContainer width="100%" height={180}>
                   <AreaChart data={history}>
                     <defs>
@@ -289,6 +301,34 @@ export default function Dashboard() {
                         color: '#e2e8f0',
                       }}
                     />
+                    {/* Research benchmark band (shaded target zone) */}
+                    {hasBand && (
+                      <ReferenceArea
+                        y1={bench.chartBand.y1}
+                        y2={bench.chartBand.y2}
+                        fill="#22c55e"
+                        fillOpacity={0.06}
+                        stroke="#22c55e"
+                        strokeOpacity={0.15}
+                        strokeDasharray="4 4"
+                      />
+                    )}
+                    {/* Research average line */}
+                    {bench && bench.chartTarget && (
+                      <ReferenceLine
+                        y={bench.chartTarget}
+                        stroke="#22c55e"
+                        strokeDasharray="6 3"
+                        strokeOpacity={0.5}
+                        label={{
+                          value: `Avg: ${bench.chartTarget}${isAccuracyBased ? '%' : ex.unit}`,
+                          position: 'right',
+                          fill: '#22c55e',
+                          fontSize: 10,
+                          opacity: 0.7,
+                        }}
+                      />
+                    )}
                     <Area
                       type="monotone"
                       dataKey="threshold"

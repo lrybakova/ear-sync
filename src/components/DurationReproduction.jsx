@@ -18,6 +18,7 @@ import {
   generateDurationTrialOrder,
 } from '../utils/adaptive';
 import { saveSession, saveTrial } from '../utils/storage';
+import { getBenchmarkSummary } from '../utils/benchmarks';
 
 /**
  * Duration Reproduction Exercise
@@ -294,6 +295,31 @@ export default function DurationReproduction({ isBaseline = false, onComplete })
             );
           })}
         </div>
+
+        {/* Research Benchmark */}
+        {(() => {
+          const benchmark = getBenchmarkSummary('duration_reproduction', avgAcc);
+          if (!benchmark) return null;
+          return (
+            <div className="benchmark-card">
+              <div className="benchmark-header">
+                <span className="benchmark-dot" style={{ background: benchmark.color }} />
+                <span className="benchmark-text" style={{ color: benchmark.color }}>
+                  {benchmark.text}
+                </span>
+              </div>
+              <p className="benchmark-detail">{benchmark.detail}</p>
+              {benchmark.note && (
+                <p className="benchmark-note">{benchmark.note}</p>
+              )}
+              {benchmark.sourceUrl && (
+                <a className="benchmark-source" href={benchmark.sourceUrl} target="_blank" rel="noopener noreferrer">
+                  View research →
+                </a>
+              )}
+            </div>
+          );
+        })()}
 
         {isBaseline && (
           <div className="baseline-note">

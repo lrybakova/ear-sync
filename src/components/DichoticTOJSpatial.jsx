@@ -1,37 +1,30 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useExercise } from '../hooks/useExercise';
-import { getAudioContext, playPitchSequence } from '../audio/audioEngine';
+import { getAudioContext, playDichoticTOJSpatialTrial } from '../audio/audioEngine';
 import {
-  PITCH_STEPS,
-  PITCH_TRIALS_PER_LEVEL,
-  PITCH_ADVANCE_THRESHOLD,
-  PITCH_RETREAT_THRESHOLD,
-  PITCH_MAX_TRIALS,
-  PITCH_MAX_TIME_MS,
-  PITCH_BASE_FREQ,
-  semitoneToFreq,
+  DICHOTIC_TOJ_STEPS,
+  DICHOTIC_TOJ_TRIALS_PER_LEVEL,
+  DICHOTIC_TOJ_ADVANCE_THRESHOLD,
+  DICHOTIC_TOJ_RETREAT_THRESHOLD,
+  DICHOTIC_TOJ_MAX_TRIALS,
+  DICHOTIC_TOJ_MAX_TIME_MS,
 } from '../utils/adaptive';
 import { ConstrainedRandomizer } from '../utils/constrainedRandom';
 import SessionComplete from './SessionComplete';
 
-/**
- * Pitch Discrimination in Sequence Exercise
- * 3 reference tones + 1 target (higher or lower)
- * User identifies if target was higher or lower
- */
-export default function PitchDiscrimination({ isBaseline = false, onComplete }) {
+export default function DichoticTOJSpatial({ isBaseline = false, onComplete }) {
   const exercise = useExercise({
-    exerciseType: 'pitch_discrimination',
-    steps: PITCH_STEPS,
-    trialsPerLevel: PITCH_TRIALS_PER_LEVEL,
-    advanceThreshold: PITCH_ADVANCE_THRESHOLD,
-    retreatThreshold: PITCH_RETREAT_THRESHOLD,
-    maxTrials: PITCH_MAX_TRIALS,
-    maxTimeMs: PITCH_MAX_TIME_MS,
+    exerciseType: 'dichotic_toj_spatial',
+    steps: DICHOTIC_TOJ_STEPS,
+    trialsPerLevel: DICHOTIC_TOJ_TRIALS_PER_LEVEL,
+    advanceThreshold: DICHOTIC_TOJ_ADVANCE_THRESHOLD,
+    retreatThreshold: DICHOTIC_TOJ_RETREAT_THRESHOLD,
+    maxTrials: isBaseline ? DICHOTIC_TOJ_MAX_TRIALS : DICHOTIC_TOJ_MAX_TRIALS,
+    maxTimeMs: isBaseline ? DICHOTIC_TOJ_MAX_TIME_MS : DICHOTIC_TOJ_MAX_TIME_MS,
     isBaseline,
   });
 
-  const [direction, setDirection] = useState(null); // 'higher' or 'lower'
+  const [actualOrder, setActualOrder] = useState(null); // 'left_first' or 'right_first'
   const [isPlaying, setIsPlaying] = useState(false);
   const respondedRef = useRef(false);
   const randomizerRef = useRef(new ConstrainedRandomizer());
@@ -50,44 +43,41 @@ export default function PitchDiscrimination({ isBaseline = false, onComplete }) 
     }
   }, [trialNumber, phase]);
 
+  // Play the audio stimulus
   const playStimulus = useCallback(() => {
-    getAudioContext();
+    getAudioContext(); // Ensure context is running
+
     const config = startTrial();
     if (!config) return;
 
     // Use constrained randomization: max 2 consecutive identical trials
-    const isHigher = randomizerRef.current.next();
-    const dir = isHigher ? 'higher' : 'lower';
-    setDirection(dir);
+    const leftFirst = randomizerRef.current.next();
+    const order = leftFirst ? 'left_first' : 'right_first';
+    setActualOrder(order);
     setIsPlaying(true);
     respondedRef.current = false;
 
-    // Calculate target frequency
-    const semitones = isHigher ? config.value : -config.value;
-    const targetFreq = semitoneToFreq(PITCH_BASE_FREQ, semitones);
-
     markStimulusStart();
 
-    const { totalDurationMs } = playPitchSequence(PITCH_BASE_FREQ, targetFreq, 250, 250);
+    // Play the Dichotic TOJ Spatial stimulus (IDENTICAL 1000Hz tones to both ears)
+    const result = playDichoticTOJSpatialTrial(leftFirst, config.value);
 
-    // After sequence ends, enable response
+    // After both tones finish, enable response
+    const totalDuration = result.totalDurationMs + 100; // small buffer
     setTimeout(() => {
       setIsPlaying(false);
-      enableResponse({
-        direction: dir,
-        semitoneDiff: config.value,
-        targetFreqHz: Math.round(targetFreq * 10) / 10,
-      });
-    }, totalDurationMs + 100);
+      enableResponse({ order, soaMs: config.value });
+    }, totalDuration);
   }, [startTrial, markStimulusStart, enableResponse]);
 
+  // Handle user response
   const handleResponse = useCallback(
     (response) => {
       if (phase !== 'responding' || respondedRef.current) return;
       respondedRef.current = true;
-      recordResponse(response, direction);
+      recordResponse(response, actualOrder);
     },
-    [phase, direction, recordResponse]
+    [phase, actualOrder, recordResponse]
   );
 
   // Keyboard shortcuts
@@ -95,13 +85,15 @@ export default function PitchDiscrimination({ isBaseline = false, onComplete }) 
     function handleKey(e) {
       if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
-        if (phase === 'ready') playStimulus();
+        if (phase === 'ready') {
+          playStimulus();
+        }
       }
       if (phase === 'responding') {
-        if (e.key === 'h' || e.key === 'H' || e.key === '1' || e.key === 'ArrowUp') {
-          handleResponse('higher');
-        } else if (e.key === 'l' || e.key === 'L' || e.key === '2' || e.key === 'ArrowDown') {
-          handleResponse('lower');
+        if (e.key === 'l' || e.key === 'L' || e.key === '1') {
+          handleResponse('left_first');
+        } else if (e.key === 'r' || e.key === 'R' || e.key === '2') {
+          handleResponse('right_first');
         }
       }
     }
@@ -109,7 +101,7 @@ export default function PitchDiscrimination({ isBaseline = false, onComplete }) 
     return () => window.removeEventListener('keydown', handleKey);
   }, [phase, playStimulus, handleResponse]);
 
-  // Auto-start next trial
+  // Auto-start next trial after feedback
   useEffect(() => {
     if (phase === 'ready' && trialNumber > 0) {
       const timer = setTimeout(() => playStimulus(), 500);
@@ -120,22 +112,16 @@ export default function PitchDiscrimination({ isBaseline = false, onComplete }) 
   const minutes = Math.floor(timeRemainingMs / 60000);
   const seconds = Math.floor((timeRemainingMs % 60000) / 1000);
 
-  // Display the current semitone diff nicely
-  const diffLabel = currentValue >= 1
-    ? `${currentValue} ST`
-    : `${Math.round(currentValue * 100)} cents`;
-
   if (phase === 'complete') {
     return (
       <SessionComplete
-        exerciseType="pitch_discrimination"
-        exerciseLabel="Pitch Discrimination"
+        exerciseType="dichotic_toj_spatial"
+        exerciseLabel="Dichotic Temporal Order (Spatial)"
         trials={allTrials}
         accuracy={accuracy}
         finalThreshold={currentValue}
         isBaseline={isBaseline}
         onDone={onComplete}
-        thresholdUnit=" ST"
       />
     );
   }
@@ -144,14 +130,14 @@ export default function PitchDiscrimination({ isBaseline = false, onComplete }) 
     <div className="exercise-container">
       <div className="exercise-header">
         <h2 className="exercise-title">
-          {isBaseline ? '📊 Baseline: ' : ''}Pitch Discrimination
+          {isBaseline ? '📊 Baseline: ' : ''}Dichotic TOJ (Spatial)
         </h2>
         <div className="exercise-meta">
           <span className="meta-pill">
-            Trial {trialNumber + 1} / {PITCH_MAX_TRIALS}
+            Trial {trialNumber + 1} / {DICHOTIC_TOJ_MAX_TRIALS}
           </span>
           <span className="meta-pill">
-            Diff: {diffLabel}
+            SOA: {currentValue}ms
           </span>
           <span className="meta-pill">
             {Math.round(accuracy * 100)}% accurate
@@ -162,36 +148,46 @@ export default function PitchDiscrimination({ isBaseline = false, onComplete }) 
         </div>
       </div>
 
+      {/* Headphone warning */}
+      <div className="headphone-notice">
+        🎧 Headphones REQUIRED - This exercise tests spatial hearing
+      </div>
+
+      {/* Progress bar */}
       <div className="progress-track">
         <div
-          className="progress-fill pitch"
-          style={{ width: `${(trialNumber / PITCH_MAX_TRIALS) * 100}%` }}
+          className="progress-fill toj"
+          style={{ width: `${(trialNumber / DICHOTIC_TOJ_MAX_TRIALS) * 100}%` }}
         />
       </div>
 
       {/* Level indicator */}
       <div className="level-steps">
-        {PITCH_STEPS.map((step, i) => (
+        {DICHOTIC_TOJ_STEPS.map((step, i) => (
           <div
             key={step}
             className={`level-dot ${i === exercise.currentStepIndex ? 'active' : ''} ${i < exercise.currentStepIndex ? 'passed' : ''}`}
-            title={`${step} ST`}
+            title={`${step}ms`}
           >
-            <span className="level-label">{step >= 1 ? step : `${Math.round(step * 100)}c`}</span>
+            <span className="level-label">{step}</span>
           </div>
         ))}
       </div>
 
+      {/* Main exercise area */}
       <div className="exercise-stage">
         {phase === 'ready' && trialNumber === 0 && (
           <div className="stage-prompt">
             <div className="instruction-card">
               <h3>How it works</h3>
-              <p>You'll hear <strong>4 tones</strong> in sequence. The first 3 are all the same pitch (440Hz reference).</p>
-              <p>The 4th tone is slightly <strong>higher</strong> or <strong>lower</strong>. Your job is to identify which.</p>
+              <p>You'll hear <strong>two identical tones</strong> (1000Hz) in rapid succession—one to each ear.</p>
+              <p><strong>Identify which EAR heard the tone first.</strong></p>
+              <p className="research-note">
+                ⚗️ Research-grade test: Uses identical frequencies to test pure hemispheric synchronization without pitch cues.
+              </p>
               <div className="key-hints">
-                <span><kbd>H</kbd> or <kbd>↑</kbd> = Higher</span>
-                <span><kbd>L</kbd> or <kbd>↓</kbd> = Lower</span>
+                <span><kbd>L</kbd> or <kbd>1</kbd> = Left ear first</span>
+                <span><kbd>R</kbd> or <kbd>2</kbd> = Right ear first</span>
               </div>
             </div>
             <button className="btn-primary btn-large" onClick={playStimulus}>
@@ -211,38 +207,43 @@ export default function PitchDiscrimination({ isBaseline = false, onComplete }) 
 
         {phase === 'playing' && (
           <div className="stage-active">
-            <div className="pitch-visualizer">
-              <div className="pitch-sequence">
-                {[1, 2, 3, 4].map((n) => (
-                  <div key={n} className={`pitch-dot ${n === 4 ? 'target' : 'reference'}`}>
-                    <span>{n === 4 ? '?' : '♪'}</span>
-                  </div>
-                ))}
+            <div className="toj-visualizer">
+              <div className="ear-indicator left">
+                <span className="ear-label">L</span>
+                <div className="tone-wave" />
+                <span className="freq-label">1000Hz</span>
+              </div>
+              <div className="ear-indicator right">
+                <span className="ear-label">R</span>
+                <div className="tone-wave" />
+                <span className="freq-label">1000Hz</span>
               </div>
             </div>
-            <p className="stage-label">Listening to sequence...</p>
+            <p className="stage-label">Listening...</p>
           </div>
         )}
 
         {phase === 'responding' && (
           <div className="stage-respond">
-            <p className="stage-label">Was the 4th tone higher or lower?</p>
+            <p className="stage-label">Which EAR heard the tone first?</p>
             <div className="response-buttons">
               <button
-                className="btn-response btn-higher"
-                onClick={() => handleResponse('higher')}
+                className="btn-response btn-left"
+                onClick={() => handleResponse('left_first')}
               >
-                <span className="btn-icon">↑</span>
-                <span>Higher</span>
-                <kbd>H</kbd>
+                <span className="btn-icon">👂</span>
+                <span>Left Ear First</span>
+                <span className="btn-subtitle">1000Hz (Left)</span>
+                <kbd>L</kbd>
               </button>
               <button
-                className="btn-response btn-lower"
-                onClick={() => handleResponse('lower')}
+                className="btn-response btn-right"
+                onClick={() => handleResponse('right_first')}
               >
-                <span className="btn-icon">↓</span>
-                <span>Lower</span>
-                <kbd>L</kbd>
+                <span className="btn-icon">👂</span>
+                <span>Right Ear First</span>
+                <span className="btn-subtitle">1000Hz (Right)</span>
+                <kbd>R</kbd>
               </button>
             </div>
           </div>
@@ -261,7 +262,7 @@ export default function PitchDiscrimination({ isBaseline = false, onComplete }) 
             </p>
             {levelAction && levelAction !== 'stay' && (
               <p className="level-change">
-                {levelAction === 'advance' ? '⬆ Level up! Pitch difference decreased' : '⬇ Pitch difference increased'}
+                {levelAction === 'advance' ? '⬆ Level up! SOA decreased' : '⬇ SOA increased'}
               </p>
             )}
           </div>
@@ -275,14 +276,15 @@ export default function PitchDiscrimination({ isBaseline = false, onComplete }) 
         )}
       </div>
 
-      {(phase !== 'ready' || trialNumber > 0) && (
+      {/* Controls */}
+      {phase !== 'ready' || trialNumber > 0 ? (
         <div className="exercise-controls">
           {phase !== 'paused' && phase !== 'complete' && (
             <button className="btn-secondary" onClick={pause}>Pause</button>
           )}
           <button className="btn-ghost" onClick={endSession}>End Session</button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

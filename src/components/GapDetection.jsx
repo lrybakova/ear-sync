@@ -14,6 +14,7 @@ import {
   GAP_MAX_TRIALS,
   GAP_MAX_TIME_MS,
 } from '../utils/adaptive';
+import { ConstrainedRandomizer } from '../utils/constrainedRandom';
 import SessionComplete from './SessionComplete';
 
 export default function GapDetection({ isBaseline = false, onComplete }) {
@@ -31,6 +32,7 @@ export default function GapDetection({ isBaseline = false, onComplete }) {
   const [hasGap, setHasGap] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const respondedRef = useRef(false);
+  const randomizerRef = useRef(new ConstrainedRandomizer());
 
   const {
     phase, currentValue, trialNumber, allTrials,
@@ -39,6 +41,13 @@ export default function GapDetection({ isBaseline = false, onComplete }) {
     recordResponse, pause, resume, endSession, setPhase,
   } = exercise;
 
+  // Reset randomizer at session start
+  useEffect(() => {
+    if (trialNumber === 0 && phase === 'ready') {
+      randomizerRef.current.reset();
+    }
+  }, [trialNumber, phase]);
+
   // Play the audio stimulus
   const playStimulus = useCallback(() => {
     getAudioContext(); // Ensure context is running
@@ -46,8 +55,8 @@ export default function GapDetection({ isBaseline = false, onComplete }) {
     const config = startTrial();
     if (!config) return;
 
-    // Randomize: 50% gap, 50% no gap
-    const gapPresent = Math.random() < 0.5;
+    // Use constrained randomization: max 2 consecutive identical trials
+    const gapPresent = randomizerRef.current.next();
     setHasGap(gapPresent);
     setIsPlaying(true);
     respondedRef.current = false;

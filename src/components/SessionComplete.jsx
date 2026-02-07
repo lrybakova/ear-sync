@@ -34,6 +34,7 @@ export default function SessionComplete({
   const thresholdLabels = {
     gap_detection: 'Gap Threshold',
     temporal_order_judgment: 'SOA Threshold',
+    dichotic_toj_spatial: 'SOA Threshold',
     pitch_discrimination: 'Pitch Threshold',
     pattern_detection: 'Level',
     duration_reproduction: 'Avg Accuracy',
@@ -43,6 +44,7 @@ export default function SessionComplete({
   const defaultUnits = {
     gap_detection: 'ms',
     temporal_order_judgment: 'ms',
+    dichotic_toj_spatial: 'ms',
     pitch_discrimination: ' ST',
     pattern_detection: '',
     duration_reproduction: '%',

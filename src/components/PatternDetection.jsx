@@ -17,6 +17,7 @@ import {
   calculateAccuracy,
   shouldEndSession,
 } from '../utils/adaptive';
+import { WeightedConstrainedRandomizer } from '../utils/constrainedRandom';
 import { saveSession, saveTrial } from '../utils/storage';
 
 /**
@@ -40,6 +41,7 @@ export default function PatternDetection({ isBaseline = false, onComplete }) {
   const stimulusStartRef = useRef(0);
   const feedbackTimeoutRef = useRef(null);
   const respondedRef = useRef(false);
+  const randomizerRef = useRef(new WeightedConstrainedRandomizer(0.6)); // 60% pattern
 
   // Warn before leaving page mid-session
   useBeforeUnload(trialNumber > 0 && phase !== 'complete');
@@ -49,6 +51,13 @@ export default function PatternDetection({ isBaseline = false, onComplete }) {
       if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
     };
   }, []);
+
+  // Reset randomizer at session start
+  useEffect(() => {
+    if (trialNumber === 0 && phase === 'ready') {
+      randomizerRef.current.reset();
+    }
+  }, [trialNumber, phase]);
 
   const currentLevel = PATTERN_LEVELS[currentLevelIndex];
   const elapsed = Date.now() - sessionStartTime;
@@ -73,8 +82,8 @@ export default function PatternDetection({ isBaseline = false, onComplete }) {
 
     const config = getPatternLevelConfig(currentLevel);
 
-    // 60% pattern, 40% random
-    const showPattern = Math.random() < 0.6;
+    // Use weighted constrained randomization: 60% pattern, 40% random, max 2 consecutive identical
+    const showPattern = randomizerRef.current.next();
 
     let patternResult;
     if (showPattern) {

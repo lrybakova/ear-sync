@@ -15,13 +15,23 @@ export const GAP_RETREAT_THRESHOLD = 0.60;
 export const GAP_MAX_TRIALS = 150;
 export const GAP_MAX_TIME_MS = 15 * 60 * 1000; // 15 minutes
 
-// TOJ step sizes (ms)
+// TOJ Spectral (frequency-based) step sizes (ms)
 export const TOJ_STEPS = [150, 100, 70, 50, 35, 25, 20, 15, 12];
 export const TOJ_TRIALS_PER_LEVEL = 15;
 export const TOJ_ADVANCE_THRESHOLD = 0.75;
 export const TOJ_RETREAT_THRESHOLD = 0.60;
 export const TOJ_MAX_TRIALS = 150;
 export const TOJ_MAX_TIME_MS = 15 * 60 * 1000; // 15 minutes
+
+// Dichotic TOJ Spatial (same frequency, pure spatial) step sizes (ms)
+// Research-based: matches published methodology for direct comparison
+// Target: ~66.5ms for young adults (Fostick & Babkoff, 2022)
+export const DICHOTIC_TOJ_STEPS = [150, 100, 70, 50, 35, 25, 20, 15, 12];
+export const DICHOTIC_TOJ_TRIALS_PER_LEVEL = 15;
+export const DICHOTIC_TOJ_ADVANCE_THRESHOLD = 0.75;
+export const DICHOTIC_TOJ_RETREAT_THRESHOLD = 0.60;
+export const DICHOTIC_TOJ_MAX_TRIALS = 150;
+export const DICHOTIC_TOJ_MAX_TIME_MS = 15 * 60 * 1000; // 15 minutes
 
 // Duration Reproduction
 export const DURATION_LEVELS = [68, 150, 300, 450, 600, 800, 1000, 1400, 2000]; // ms

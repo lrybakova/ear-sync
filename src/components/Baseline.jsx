@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import GapDetection from './GapDetection';
 import TemporalOrderJudgment from './TemporalOrderJudgment';
+import DichoticTOJSpatial from './DichoticTOJSpatial';
 import DurationReproduction from './DurationReproduction';
 import PitchDiscrimination from './PitchDiscrimination';
 import PatternDetection from './PatternDetection';
@@ -13,6 +14,7 @@ import HeadphoneCheck from './HeadphoneCheck';
 const EXERCISE_LABELS = {
   gap: 'Gap Detection',
   toj: 'Temporal Order Judgment',
+  dichotic_spatial: 'Dichotic TOJ (Spatial)',
   duration: 'Duration Reproduction',
   pitch: 'Pitch Discrimination',
   pattern: 'Pattern Detection',
@@ -21,12 +23,13 @@ const EXERCISE_LABELS = {
 const EXERCISE_TIMES = {
   gap: '~15 min',
   toj: '~15 min',
+  dichotic_spatial: '~15 min',
   duration: '~12 min',
   pitch: '~15 min',
   pattern: '~20 min',
 };
 
-const NEEDS_HEADPHONES = ['toj'];
+const NEEDS_HEADPHONES = ['toj', 'dichotic_spatial'];
 
 export default function Baseline() {
   const navigate = useNavigate();
@@ -89,6 +92,7 @@ export default function Baseline() {
   const exerciseMap = {
     gap: <GapDetection isBaseline onComplete={handleComplete} />,
     toj: <TemporalOrderJudgment isBaseline onComplete={handleComplete} />,
+    dichotic_spatial: <DichoticTOJSpatial isBaseline onComplete={handleComplete} />,
     duration: <DurationReproduction isBaseline onComplete={handleComplete} />,
     pitch: <PitchDiscrimination isBaseline onComplete={handleComplete} />,
     pattern: <PatternDetection isBaseline onComplete={handleComplete} />,

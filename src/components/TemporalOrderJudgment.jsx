@@ -9,6 +9,7 @@ import {
   TOJ_MAX_TRIALS,
   TOJ_MAX_TIME_MS,
 } from '../utils/adaptive';
+import { ConstrainedRandomizer } from '../utils/constrainedRandom';
 import SessionComplete from './SessionComplete';
 
 export default function TemporalOrderJudgment({ isBaseline = false, onComplete }) {
@@ -26,6 +27,7 @@ export default function TemporalOrderJudgment({ isBaseline = false, onComplete }
   const [actualOrder, setActualOrder] = useState(null); // 'high_first' or 'low_first'
   const [isPlaying, setIsPlaying] = useState(false);
   const respondedRef = useRef(false);
+  const randomizerRef = useRef(new ConstrainedRandomizer());
 
   const {
     phase, currentValue, trialNumber, allTrials,
@@ -34,6 +36,13 @@ export default function TemporalOrderJudgment({ isBaseline = false, onComplete }
     recordResponse, pause, resume, endSession, setPhase,
   } = exercise;
 
+  // Reset randomizer at session start
+  useEffect(() => {
+    if (trialNumber === 0 && phase === 'ready') {
+      randomizerRef.current.reset();
+    }
+  }, [trialNumber, phase]);
+
   // Play the audio stimulus
   const playStimulus = useCallback(() => {
     getAudioContext(); // Ensure context is running
@@ -41,8 +50,8 @@ export default function TemporalOrderJudgment({ isBaseline = false, onComplete }
     const config = startTrial();
     if (!config) return;
 
-    // Randomize: 50% high first, 50% low first
-    const highFirst = Math.random() < 0.5;
+    // Use constrained randomization: max 2 consecutive identical trials
+    const highFirst = randomizerRef.current.next();
     const order = highFirst ? 'high_first' : 'low_first';
     setActualOrder(order);
     setIsPlaying(true);

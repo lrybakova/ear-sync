@@ -40,6 +40,18 @@ const EXERCISES = [
     unlockWeek: 1,
   },
   {
+    id: 'dichotic_spatial',
+    type: 'dichotic_toj_spatial',
+    title: 'Dichotic TOJ (Spatial)',
+    icon: '🎧',
+    description: 'Identify which ear heard the tone first. Tests pure hemispheric synchronization.',
+    thresholdLabel: 'SOA',
+    unit: 'ms',
+    color: '#8b5cf6',
+    cardClass: 'dichotic-spatial-card',
+    unlockWeek: 3,
+  },
+  {
     id: 'duration',
     type: 'duration_reproduction',
     title: 'Duration Repro',
@@ -81,6 +93,7 @@ const EXERCISES = [
 const BASELINE_KEYS = {
   gap_detection: 'gapDetection',
   temporal_order_judgment: 'temporalOrderJudgment',
+  dichotic_toj_spatial: 'dichoticTojSpatial',
   duration_reproduction: 'durationReproduction',
   pitch_discrimination: 'pitchDiscrimination',
   pattern_detection: 'patternDetection',

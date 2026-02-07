@@ -219,6 +219,37 @@ export function playTOJTrial(highFirst, soaMs, toneDurationMs = 50) {
 }
 
 /**
+ * Play a Dichotic TOJ trial (Spatial) - IDENTICAL tones to each ear
+ * Research-grade methodology matching Fostick & Babkoff (2022)
+ * 
+ * Key difference from playTOJTrial: Uses SAME frequency (1000Hz) for both tones
+ * This eliminates pitch cues and tests pure temporal/spatial discrimination
+ * 
+ * @param {boolean} leftFirst - If true, left ear tone plays first
+ * @param {number} soaMs - Stimulus Onset Asynchrony in ms
+ * @param {number} toneDurationMs - Each tone's duration (default 50ms)
+ * @returns {{ order: string, totalDurationMs: number }}
+ */
+export function playDichoticTOJSpatialTrial(leftFirst, soaMs, toneDurationMs = 50) {
+  const frequency = 1000; // Hz - IDENTICAL for both ears
+
+  if (leftFirst) {
+    // Left ear first, then right ear
+    playTone(frequency, toneDurationMs, -1, 0);      // Left ear, immediate
+    playTone(frequency, toneDurationMs, 1, soaMs);   // Right ear, delayed
+  } else {
+    // Right ear first, then left ear
+    playTone(frequency, toneDurationMs, 1, 0);       // Right ear, immediate
+    playTone(frequency, toneDurationMs, -1, soaMs);  // Left ear, delayed
+  }
+
+  return {
+    order: leftFirst ? 'left_first' : 'right_first',
+    totalDurationMs: soaMs + toneDurationMs,
+  };
+}
+
+/**
  * Play a test tone for headphone/volume check
  * @param {'left' | 'right' | 'center'} channel
  * @param {number} frequency

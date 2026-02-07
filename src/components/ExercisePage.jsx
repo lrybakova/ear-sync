@@ -2,12 +2,13 @@ import { useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import GapDetection from './GapDetection';
 import TemporalOrderJudgment from './TemporalOrderJudgment';
+import DichoticTOJSpatial from './DichoticTOJSpatial';
 import DurationReproduction from './DurationReproduction';
 import PitchDiscrimination from './PitchDiscrimination';
 import PatternDetection from './PatternDetection';
 import HeadphoneCheck from './HeadphoneCheck';
 
-const NEEDS_HEADPHONES = ['toj'];
+const NEEDS_HEADPHONES = ['toj', 'dichotic_spatial'];
 
 export default function ExercisePage() {
   const navigate = useNavigate();
@@ -28,6 +29,7 @@ export default function ExercisePage() {
   const exerciseMap = {
     gap: <GapDetection onComplete={handleComplete} />,
     toj: <TemporalOrderJudgment onComplete={handleComplete} />,
+    dichotic_spatial: <DichoticTOJSpatial onComplete={handleComplete} />,
     duration: <DurationReproduction onComplete={handleComplete} />,
     pitch: <PitchDiscrimination onComplete={handleComplete} />,
     pattern: <PatternDetection onComplete={handleComplete} />,
